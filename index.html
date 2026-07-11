@@ -645,6 +645,7 @@ function openUpgradeChoices() {
 }
 let currentPicks = [];
 let pauseRafId = null;   // 暫停時的 setTimeout id（供解除暫停時清除）
+let frameHitFxBudget = 999;   // 這一幀還能產生幾次「命中特效」（粒子+文字），群體命中時節流用
 
 function pickUpgrade(id) {
   const u = UPGRADE_POOL.find(x => x.id === id);
@@ -875,6 +876,20 @@ function bakeCoin() {
   return c;
 }
 
+/* ---- 黑洞核心 sprite（一般紫色 / 滅世漩渦火色，各烘焙一次）----
+   原本每幀用 createRadialGradient 重建，在手機上疊加群體命中特效時是額外負擔。
+   烘焙成 sprite 後運行時只需 drawImage。 */
+function bakeBlackholeCore(isVortex) {
+  const S = 64, c = makeCanvas(S, S), g = c.getContext("2d");
+  const core = g.createRadialGradient(S/2, S/2, 2, S/2, S/2, 30);
+  core.addColorStop(0, "#000");
+  core.addColorStop(0.7, isVortex ? "rgba(160, 40, 10, 0.9)" : "rgba(40, 10, 80, 0.9)");
+  core.addColorStop(1, "rgba(0,0,0,0)");
+  g.fillStyle = core;
+  g.beginPath(); g.arc(S/2, S/2, 30, 0, TAU); g.fill();
+  return c;
+}
+
 /* 烘焙全部 sprite（遊戲開始前執行一次） */
 function bakeAllSprites() {
   sprites.slime  = bakeSlime(18);
@@ -892,6 +907,8 @@ function bakeAllSprites() {
     sprites.dot.push(bakeDot(i * 10));
   }
   sprites.coin = bakeCoin();
+  sprites.blackholeCore = bakeBlackholeCore(false);
+  sprites.blackholeCoreVortex = bakeBlackholeCore(true);
 }
 const hueIdx = (hue) => ((Math.round(hue / 10) % 36) + 36) % 36;
 
@@ -1362,11 +1379,15 @@ function updateBlackholes(dt) {
     const cd = Math.max(3, 6 - (lv - 1));
     if (blackholeTimer <= 0) {
       blackholeTimer = cd;
+      // ★ 黑洞半徑依裝置縮小：手機螢幕小，大半徑會把全部怪吸成一團，
+      //   刀刃同時命中一大群怪 → 瞬間噴發大量粒子與傷害字，是手機卡頓主因之一
+      const baseR = hasVortexSynergy() ? 500 : 380;
+      const rScale = DEVICE.tier === "desktop" ? 1 : (DEVICE.tier === "mobile" ? 0.62 : 0.45);
       // 在鏡頭視野內隨機位置生成黑洞
       blackholes.push({
         x: camera.x + rand(W * 0.2, W * 0.8),
         y: camera.y + rand(H * 0.2, H * 0.8),
-        r: hasVortexSynergy() ? 500 : 380,
+        r: baseR * rScale,
         life: 2.5, maxLife: 2.5,
         angle: 0,
         tick: 0.35,
@@ -1549,6 +1570,11 @@ function update(dt) {
   state.hueShift = (state.hueShift + dt * 70) % 360;
   if (state.slowMo > 0) { state.slowMo -= dt; dt *= 0.3; }
 
+  // ★ 每幀特效節流：手機上群體命中（如黑洞聚怪）會讓刀刃同時打中一堆怪，
+  //   若每次命中都噴粒子+傷害字，瞬間物件量暴衝造成掉幀。
+  //   這裡限制「這一幀」最多產生幾次命中特效，超過的命中仍正常扣血，只是不噴滿版特效。
+  frameHitFxBudget = DEVICE.tier === "desktop" ? 999 : (DEVICE.tier === "mobile" ? 14 : 8);
+
   /* 排程器 */
   for (let i = timers.length - 1; i >= 0; i--) {
     if (state.time >= timers[i].t) {
@@ -1675,9 +1701,12 @@ function update(dt) {
         if (dist2(e.x, e.y, bx, by) < rr * rr) {
           const crit = Math.random() < player.critChance;
           const dmg = atk * (crit ? player.critMult : 1) * rand(0.92, 1.08);
-          dealDamage(e, dmg, crit, {});
+          // ★ 特效節流：預算用盡時仍正常扣血/計傷害/里程碑，只是不噴粒子（傷害字仍顯示，靠 MAX_DMG_TEXTS 控制量）
+          const showFx = frameHitFxBudget > 0;
+          if (showFx) frameHitFxBudget--;
+          dealDamage(e, dmg, crit, { silent: !showFx && !crit && e.type !== "ogre" && e.type !== "demonLord" });
           e.hitCd = 0.12;
-          sparkBurst(e.x, e.y, (state.hueShift + rand(0, 60)) % 360, crit ? 8 : 4);
+          if (showFx) sparkBurst(e.x, e.y, (state.hueShift + rand(0, 60)) % 360, crit ? 8 : 4);
           const isBoss = e.type === "ogre" || e.type === "demonLord";
           const kb = isBoss ? 3 : 16;
           const ddx = player.x - e.x, ddy = player.y - e.y;
@@ -2095,25 +2124,38 @@ function drawDecoration(dcr) {
 
 /* ---------- 岩漿禁區 ---------- */
 function drawLava(lv) {
+  const mobile = DEVICE.tier !== "desktop";
   ctx.save();
   ctx.translate(lv.x, lv.y);
   const fade = Math.min(1, lv.life / 2);   // 消失前淡出
   const pulse = 0.75 + Math.sin(state.time * 3 + lv.seed) * 0.25;
-  const g = ctx.createRadialGradient(0, 0, lv.r * 0.15, 0, 0, lv.r);
-  g.addColorStop(0, `rgba(255, 200, 60, ${0.55 * pulse * fade})`);
-  g.addColorStop(0.5, `rgba(255, 90, 30, ${0.42 * fade})`);
-  g.addColorStop(1, `rgba(120, 20, 10, ${0.15 * fade})`);
-  ctx.fillStyle = g;
-  ctx.beginPath(); ctx.arc(0, 0, lv.r, 0, TAU); ctx.fill();
-  // 邊緣裂紋圈
+
+  if (mobile) {
+    // 手機：用 3 層實色同心圓疊出漸層感，取代 createRadialGradient（每幀重建成本較高）
+    ctx.fillStyle = `rgba(120, 20, 10, ${0.15 * fade})`;
+    ctx.beginPath(); ctx.arc(0, 0, lv.r, 0, TAU); ctx.fill();
+    ctx.fillStyle = `rgba(255, 90, 30, ${0.42 * fade})`;
+    ctx.beginPath(); ctx.arc(0, 0, lv.r * 0.6, 0, TAU); ctx.fill();
+    ctx.fillStyle = `rgba(255, 200, 60, ${0.55 * pulse * fade})`;
+    ctx.beginPath(); ctx.arc(0, 0, lv.r * 0.18, 0, TAU); ctx.fill();
+  } else {
+    const g = ctx.createRadialGradient(0, 0, lv.r * 0.15, 0, 0, lv.r);
+    g.addColorStop(0, `rgba(255, 200, 60, ${0.55 * pulse * fade})`);
+    g.addColorStop(0.5, `rgba(255, 90, 30, ${0.42 * fade})`);
+    g.addColorStop(1, `rgba(120, 20, 10, ${0.15 * fade})`);
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(0, 0, lv.r, 0, TAU); ctx.fill();
+  }
+
+  // 邊緣裂紋圈（手機用實線，setLineDash 省略）
   ctx.strokeStyle = `rgba(255, 120, 40, ${0.5 * fade})`;
   ctx.lineWidth = 3;
-  ctx.setLineDash([14, 10]);
+  if (!mobile) ctx.setLineDash([14, 10]);
   ctx.beginPath(); ctx.arc(0, 0, lv.r * 0.92, state.time, state.time + TAU); ctx.stroke();
-  ctx.setLineDash([]);
+  if (!mobile) ctx.setLineDash([]);
   ctx.restore();
-  // 偶爾冒火泡
-  if (Math.random() < 0.15) {
+  // 偶爾冒火泡（手機降低頻率，減少粒子產出）
+  if (Math.random() < (mobile ? 0.06 : 0.15)) {
     addParticle({
       x: lv.x + rand(-lv.r * 0.7, lv.r * 0.7),
       y: lv.y + rand(-lv.r * 0.7, lv.r * 0.7),
@@ -2128,23 +2170,25 @@ function drawLava(lv) {
 function drawBlackhole(bh) {
   const vortex = hasVortexSynergy();
   const fade = Math.min(1, bh.life / 0.5, (bh.maxLife - bh.life) / 0.3 + 0.2);
+  const mobile = DEVICE.tier !== "desktop";
   ctx.save();
   ctx.translate(bh.x, bh.y);
   ctx.globalAlpha = fade;
-  // 引力範圍暗示圈
+  // 引力範圍暗示圈（手機用實線取代虛線：setLineDash 在部分手機上有額外運算成本）
   ctx.strokeStyle = vortex ? "rgba(255, 120, 40, 0.25)" : "rgba(155, 92, 255, 0.25)";
   ctx.lineWidth = 2;
-  ctx.setLineDash([8, 12]);
+  if (!mobile) ctx.setLineDash([8, 12]);
   ctx.beginPath(); ctx.arc(0, 0, bh.r, 0, TAU); ctx.stroke();
-  ctx.setLineDash([]);
-  // 旋臂（兩條螺旋弧）
+  if (!mobile) ctx.setLineDash([]);
+  // 旋臂（手機減少取樣點：0.08 步進→0.16，點數減半，視覺差異極小）
   ctx.rotate(bh.angle);
   ctx.strokeStyle = vortex ? "#ff9a2d" : "#9b5cff";
   setShadow(ctx.strokeStyle, 18);
   ctx.lineWidth = 7;
+  const step = mobile ? 0.16 : 0.08;
   for (let arm = 0; arm < 2; arm++) {
     ctx.beginPath();
-    for (let t = 0; t <= 1; t += 0.08) {
+    for (let t = 0; t <= 1; t += step) {
       const a = arm * Math.PI + t * 2.4;
       const rr = 18 + t * bh.r * 0.42;
       const px = Math.cos(a) * rr, py = Math.sin(a) * rr;
@@ -2153,13 +2197,9 @@ function drawBlackhole(bh) {
     ctx.stroke();
   }
   clearShadow();
-  // 深邃核心
-  const core = ctx.createRadialGradient(0, 0, 2, 0, 0, 30);
-  core.addColorStop(0, "#000");
-  core.addColorStop(0.7, vortex ? "rgba(160, 40, 10, 0.9)" : "rgba(40, 10, 80, 0.9)");
-  core.addColorStop(1, "rgba(0,0,0,0)");
-  ctx.fillStyle = core;
-  ctx.beginPath(); ctx.arc(0, 0, 30, 0, TAU); ctx.fill();
+  // 深邃核心：改用烘焙好的 sprite（drawImage），不再每幀 createRadialGradient
+  const coreSprite = vortex ? sprites.blackholeCoreVortex : sprites.blackholeCore;
+  ctx.drawImage(coreSprite, -32, -32);
   ctx.restore();
 }
 
@@ -2246,12 +2286,21 @@ function render() {
   for (let gy = gy0; gy < camera.y + H + gridSz; gy += gridSz) { ctx.moveTo(camera.x - 40, gy); ctx.lineTo(camera.x + W + 40, gy); }
   ctx.stroke();
 
-  // 世界邊界
-  ctx.strokeStyle = "rgba(255, 60, 60, 0.35)";
-  ctx.lineWidth = 6;
-  ctx.setLineDash([26, 18]);
-  ctx.strokeRect(4, 4, CONFIG.WORLD - 8, CONFIG.WORLD - 8);
-  ctx.setLineDash([]);
+  // 世界邊界（多數時間玩家在地圖中央，邊界根本不在視野內；只在鏡頭接近邊緣時才畫，
+  //   避免對整個 3600px 大矩形做無條件的 setLineDash 運算）
+  const nearEdge = camera.x < 250 || camera.y < 250 ||
+                   camera.x + W > CONFIG.WORLD - 250 || camera.y + H > CONFIG.WORLD - 250;
+  if (nearEdge) {
+    ctx.strokeStyle = "rgba(255, 60, 60, 0.35)";
+    ctx.lineWidth = 6;
+    if (DEVICE.tier === "desktop") {
+      ctx.setLineDash([26, 18]);
+      ctx.strokeRect(4, 4, CONFIG.WORLD - 8, CONFIG.WORLD - 8);
+      ctx.setLineDash([]);
+    } else {
+      ctx.strokeRect(4, 4, CONFIG.WORLD - 8, CONFIG.WORLD - 8);   // 手機用實線，省虛線運算
+    }
+  }
 
   /* 岩漿禁區（地面層） */
   for (const lv of lavas) if (inView(lv.x, lv.y, 200)) drawLava(lv);
