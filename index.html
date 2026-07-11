@@ -141,10 +141,12 @@
   #hint { color: #7f9dc4; font-size: 13px; }
   .hidden { display: none !important; }
 
-  /* ---------- 升級選擇畫面 ---------- */
+  /* ---------- 升級選擇畫面 ----------
+     不用 backdrop-filter: blur，那會要求 GPU 每幀對整個背景做即時模糊，
+     在滿屏 canvas 上是手機凍結的主因。改用高不透明度純色遮罩，
+     視覺上一樣是「暗化聚焦」，但成本歸零。 */
   #upgradeScreen {
-    background: rgba(5, 5, 18, 0.82);
-    backdrop-filter: blur(3px);
+    background: rgba(5, 5, 18, 0.92);
   }
   #upgradeScreen h2 {
     font-size: clamp(26px, 5vw, 40px);
@@ -256,6 +258,7 @@
     .card:active { transform: scale(0.98); border-color: #ffd23f; }
     .card .icon {
       grid-area: icon; font-size: 38px; text-align: center;
+      filter: none;   /* 手機移除 drop-shadow 濾鏡（省 GPU） */
     }
     .card h3 {
       grid-area: title; margin: 0; font-size: 16px; letter-spacing: 1px;
@@ -641,6 +644,7 @@ function openUpgradeChoices() {
   document.getElementById("upgradeScreen").classList.remove("hidden");
 }
 let currentPicks = [];
+let pauseRafId = null;   // 暫停時的 setTimeout id（供解除暫停時清除）
 
 function pickUpgrade(id) {
   const u = UPGRADE_POOL.find(x => x.id === id);
@@ -666,6 +670,8 @@ function pickUpgrade(id) {
     document.getElementById("upgradeScreen").classList.add("hidden");
     state.paused = false;
     lastTime = performance.now();  // 重置計時避免 dt 跳幀
+    // 若正被暫停用的 setTimeout 排著，取消它避免雙重排程
+    if (pauseRafId !== null) { clearTimeout(pauseRafId); pauseRafId = null; }
   }
 }
 // 鍵盤 1 / 2 / 3 快速選卡
@@ -1753,7 +1759,11 @@ function update(dt) {
     const sw = shockwaves[i];
     if (sw.delay > 0) { sw.delay -= dt; continue; }
     sw.life -= dt;
-    sw.r = sw.maxR * (1 - sw.life / sw.maxLife);
+    // ★ 修正：life 可能因大延遲或多重衝擊波超過 maxLife，讓 (1 - life/maxLife) 變負
+    //   → 半徑變負 → arc() 拋「radius negative」例外 → 主迴圈中斷 → 畫面凍結
+    //   這裡夾在 [0, maxLife] 保證半徑恆正
+    const prog = clamp(1 - sw.life / sw.maxLife, 0, 1);
+    sw.r = Math.max(0, sw.maxR * prog);
     if (sw.life <= 0) shockwaves.splice(i, 1);
   }
 
@@ -2368,7 +2378,8 @@ function render() {
   /* 衝擊波 */
   for (const sw of shockwaves) {
     if (sw.delay > 0) continue;
-    const t = sw.life / sw.maxLife;
+    if (sw.r <= 0) continue;                       // ★ 半徑非正就跳過，杜絕 arc 例外
+    const t = clamp(sw.life / sw.maxLife, 0, 1);
     ctx.strokeStyle = sw.color;
     ctx.globalAlpha = t * 0.9;
     ctx.lineWidth = 16 * t + 3;
@@ -2540,12 +2551,26 @@ function loop(ts) {
     fpsAcc = 0; fpsFrames = 0; fpsTimer = 0;
   }
 
-  if (!state.paused) {
-    update(dt);                 // ★ 選卡中暫停邏輯，但持續渲染
-    adaptPerformance(dt);       // ★ 自適應降級（手機才作用）
+  if (state.paused) {
+    // ★ 暫停選卡時：升級畫面是不透明 DOM 覆蓋層，背景 canvas 看不到，
+    //   完全不需要重繪。停掉 render() 消除全部 GPU 負載（手機凍結主因）。
+    //   用 setTimeout 以低頻率排下一次檢查即可（60fps → ~15fps 足夠偵測解除暫停）。
+    pauseRafId = setTimeout(() => requestAnimationFrame(loop), 66);
+    return;
   }
-  render();
-  requestAnimationFrame(loop);
+
+  try {
+    update(dt);                 // 更新遊戲邏輯
+    adaptPerformance(dt);       // 自適應降級（手機才作用）
+  } catch (err) {
+    console.error("update 例外（已跳過該幀）:", err.message);
+  }
+  try {
+    render();
+  } catch (err) {
+    console.error("render 例外（已跳過該幀）:", err.message);
+  }
+  requestAnimationFrame(loop);   // ★ 正常遊戲時全速排下一幀
 }
 
 /* ---------------- 顯示裝置偵測結果 ---------------- */
