@@ -2,8 +2,8 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>刀鋒風暴 3.0・滅世無敵版（Blade Storm Apocalypse）</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>刀鋒風暴 3.1・滅世無敵版（Blade Storm Apocalypse）</title>
 <style>
   /* ============================================================
      全域樣式
@@ -159,7 +159,8 @@
   }
   #cards {
     display: flex; gap: 22px; flex-wrap: wrap;
-    justify-content: center; padding: 0 16px;
+    justify-content: center; align-items: stretch;
+    padding: 0 16px; width: 100%; max-width: 720px;
   }
   .card {
     width: 208px; padding: 26px 16px 20px;
@@ -169,6 +170,7 @@
     cursor: pointer;
     transition: transform .15s, border-color .15s, box-shadow .15s;
     animation: cardIn .35s ease-out backwards;
+    -webkit-tap-highlight-color: transparent;   /* 手機點擊不要藍框 */
   }
   .card:nth-child(2) { animation-delay: .08s; }
   .card:nth-child(3) { animation-delay: .16s; }
@@ -181,6 +183,10 @@
     border-color: #ffd23f;
     box-shadow: 0 0 34px rgba(255, 210, 60, .4);
   }
+  .card:active {                                  /* 手機按下回饋 */
+    transform: scale(0.97);
+    border-color: #ffd23f;
+  }
   .card .icon { font-size: 46px; filter: drop-shadow(0 0 10px rgba(255,255,255,.35)); }
   .card h3 { color: #ffe066; margin: 12px 0 8px; letter-spacing: 2px; font-size: 18px; }
   .card p { color: #a9c4e8; font-size: 13px; line-height: 1.65; min-height: 44px; }
@@ -189,6 +195,105 @@
     display: inline-block; margin-top: 10px;
     padding: 2px 12px; border: 1px solid #556; border-radius: 6px;
     color: #7f9dc4; font-size: 12px;
+  }
+
+  /* ============================================================
+     ★★★ 手機直屏適配（≤600px 或觸控裝置）★★★
+     升級卡改垂直堆疊全寬、HUD 縮小、大招按鈕加大好按
+     ============================================================ */
+  @media (max-width: 600px), (pointer: coarse) and (max-width: 900px) {
+    /* --- HUD 縮小 --- */
+    #hud { padding: 6px 8px; }
+    .hud-left, .hud-right { gap: 4px; }
+    .stat {
+      font-size: 11px; padding: 3px 8px; border-radius: 6px;
+    }
+    #invincibleBadge { letter-spacing: 1px; }
+    #titleBadge { letter-spacing: 1px; }
+
+    /* --- 大魔王血條窄一點 --- */
+    #bossBarWrap { width: 86vw; top: 42px; }
+    #bossBarWrap .boss-name { font-size: 13px; letter-spacing: 2px; }
+    #bossBarOuter { height: 13px; }
+
+    /* --- 大招按鈕加大、往上移離開手勢區 --- */
+    #ultBtn {
+      width: 84px; height: 84px; font-size: 13px;
+      right: 16px; bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+    }
+
+    /* --- 升級標題縮小 --- */
+    #upgradeScreen { justify-content: flex-start; padding-top: 8vh; gap: 12px; }
+    #upgradeScreen h2 {
+      font-size: 22px; letter-spacing: 3px; padding: 0 12px;
+    }
+
+    /* --- 卡片：垂直堆疊、全寬、緊湊高度 --- */
+    #cards {
+      flex-direction: column; flex-wrap: nowrap;
+      gap: 10px; padding: 0 14px;
+      width: 100%; max-width: 440px;
+      max-height: 76vh; overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    .card {
+      width: 100%; padding: 12px 16px;
+      display: grid;
+      grid-template-columns: 52px 1fr auto;
+      grid-template-areas:
+        "icon title lv"
+        "icon desc desc";
+      align-items: center; gap: 2px 12px;
+      text-align: left;
+      animation: cardInMobile .3s ease-out backwards;
+    }
+    @keyframes cardInMobile {
+      from { transform: translateX(30px); opacity: 0; }
+      to   { transform: translateX(0); opacity: 1; }
+    }
+    /* 手機取消 hover 放大（避免點到時亂跳），只保留 active */
+    .card:hover { transform: none; border-color: rgba(90,130,255,.4); box-shadow: none; }
+    .card:active { transform: scale(0.98); border-color: #ffd23f; }
+    .card .icon {
+      grid-area: icon; font-size: 38px; text-align: center;
+    }
+    .card h3 {
+      grid-area: title; margin: 0; font-size: 16px; letter-spacing: 1px;
+    }
+    .card p {
+      grid-area: desc; font-size: 12px; line-height: 1.4;
+      min-height: 0; margin-top: 2px;
+    }
+    .card .lv {
+      grid-area: lv; margin-top: 0; font-size: 11px; text-align: right;
+      white-space: nowrap;
+    }
+    .card .key { display: none; }   /* 手機沒鍵盤，隱藏按鍵提示 */
+
+    /* --- 開始畫面文字縮小可讀 --- */
+    .overlay p { font-size: 13px; line-height: 1.7; }
+    #hint { font-size: 11px; padding: 0 16px; }
+    .overlay .btn { padding: 13px 44px; font-size: 18px; }
+  }
+
+  /* ============================================================
+     橫屏手機：卡片改回水平但縮小，標題更省空間
+     ============================================================ */
+  @media (pointer: coarse) and (orientation: landscape) and (max-height: 500px) {
+    #upgradeScreen { padding-top: 4vh; gap: 8px; }
+    #upgradeScreen h2 { font-size: 18px; }
+    #cards {
+      flex-direction: row; flex-wrap: nowrap;
+      max-width: 96vw; gap: 8px; max-height: 68vh;
+    }
+    .card {
+      grid-template-columns: 1fr; grid-template-areas: "icon" "title" "desc" "lv";
+      text-align: center; padding: 10px 8px; width: 31vw;
+    }
+    .card .icon { font-size: 30px; }
+    .card h3 { font-size: 14px; text-align: center; }
+    .card p { font-size: 11px; text-align: center; }
+    .card .lv { text-align: center; }
   }
 </style>
 </head>
@@ -228,17 +333,18 @@
 
 <!-- 開始畫面 -->
 <div class="overlay" id="startScreen">
-  <h1>刀 鋒 風 暴 3.0</h1>
+  <h1>刀 鋒 風 暴 3.1</h1>
   <p>
-    ⚔️ 滅世無敵版：升級三選一・BOSS 三階段・里程碑演出・千怪同屏 ⚔️<br><br>
+    ⚔️ 滅世無敵版：升級三選一・BOSS 三階段・里程碑演出・手機優化 ⚔️<br><br>
     每次升級<b style="color:#ffe066">暫停選卡</b>：火焰刀鋒 / 閃電連鎖 / 黑洞引力…9 種強化自由 Build<br>
     <b style="color:#ff9a2d">火焰 + 黑洞</b> 同時持有將覺醒隱藏技「<b style="color:#ff5e3a">滅世漩渦</b>」！<br>
     深淵魔王三階段：<b style="color:#ff3b3b">狂暴召喚 → 岩漿禁區 → 衝刺突襲</b>，擊殺有豪華連環爆炸<br>
     傷害首破 千萬 / 億 / 百億 / <b style="color:#ffd23f">兆</b> 觸發全屏儀式，破兆解鎖常駐稱號「毀滅之神」<br>
-    Sprite 快取 + 空間網格重寫渲染引擎：<b style="color:#38f9d7">同屏 1500+ 怪物依然流暢</b>
+    <b style="color:#38f9d7">全新手機優化</b>：自動偵測裝置、動態調整效能、升級選卡改直式好點選
   </p>
   <button class="btn" id="startBtn">開 始 滅 世</button>
-  <div id="hint">滑鼠 / 觸控 / WASD 移動｜空白鍵放大招｜升級選卡可按 1 / 2 / 3</div>
+  <div id="hint" id="hintText">滑鼠 / 觸控 / WASD 移動｜空白鍵放大招｜升級選卡可按 1 / 2 / 3</div>
+  <div id="deviceInfo" style="color:#5a6f8f; font-size:11px; margin-top:4px;"></div>
 </div>
 
 <script>
@@ -259,6 +365,76 @@
         → 同屏怪物上限 320 → 1500
    ================================================================ */
 
+/* ================================================================
+   ★★★ 3.1 設備偵測與效能分級 ★★★
+   把裝置分成三級：desktop（桌面）/ mobile（一般手機）/ lowEnd（低階手機）
+   每一級套用不同的怪物上限、粒子數、DPR、殘影數，
+   讓弱 GPU 的手機也能穩定跑，而桌面維持千怪爽感。
+   ================================================================ */
+const DEVICE = (function detectDevice() {
+  const ua = navigator.userAgent || "";
+
+  // 1) UA 明確標示的行動裝置（最可靠的手機訊號）
+  const phoneUA  = /iPhone|iPod|Android.*Mobile|Windows Phone|BlackBerry|Opera Mini|IEMobile/i.test(ua);
+  const tabletUA = /iPad|Android(?!.*Mobile)|Tablet|PlayBook|Silk/i.test(ua);
+  const mobileUA = phoneUA || tabletUA;
+
+  // 2) 觸控能力（僅作輔助，不單獨作為手機判定，避免觸控筆電誤判）
+  const coarse = window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
+  const hasTouch = coarse || ("ontouchstart" in window) || (navigator.maxTouchPoints > 0);
+
+  // 3) 硬體線索
+  const cores = navigator.hardwareConcurrency || 4;
+  const mem = navigator.deviceMemory || 4;             // GB，Chrome 系支援
+  const shortSide = Math.min(window.screen.width || 9999, window.screen.height || 9999);
+
+  // 判定順序：
+  //   - UA 是手機/平板 → 一定是行動裝置
+  //   - 否則若「有觸控」且「螢幕短邊 < 820」→ 視為行動裝置（純觸控小螢幕）
+  //   - 大螢幕即使有觸控（觸控筆電/觸控螢幕桌機）→ 仍算桌面，享全效能
+  const isMobile = mobileUA || (hasTouch && shortSide < 820);
+
+  let tier;
+  if (!isMobile) {
+    tier = "desktop";
+  } else if ((cores <= 4 && mem <= 3) || shortSide <= 380 || phoneUA && mem <= 3) {
+    tier = "lowEnd";        // 低階/舊手機
+  } else {
+    tier = "mobile";        // 一般中高階手機
+  }
+
+  return { tier, isTouch: hasTouch, isMobile, cores, mem, shortSide };
+})();
+
+/* 三級效能參數表 */
+const PERF_TIERS = {
+  desktop: {
+    MAX_PARTICLES: 1200, MAX_ENEMIES: 1500, MAX_DMG_TEXTS: 110, MAX_COINS: 350,
+    TRAIL_GHOSTS: 3, DPR_CAP: 2, STORM_COUNT: 60, TARGET_FPS: 60,
+    SPAWN_SCALE: 1,
+  },
+  mobile: {
+    MAX_PARTICLES: 450, MAX_ENEMIES: 500, MAX_DMG_TEXTS: 45, MAX_COINS: 160,
+    TRAIL_GHOSTS: 2, DPR_CAP: 1.5, STORM_COUNT: 28, TARGET_FPS: 60,
+    SPAWN_SCALE: 0.6,
+  },
+  lowEnd: {
+    MAX_PARTICLES: 220, MAX_ENEMIES: 280, MAX_DMG_TEXTS: 28, MAX_COINS: 90,
+    TRAIL_GHOSTS: 1, DPR_CAP: 1, STORM_COUNT: 16, TARGET_FPS: 60,
+    SPAWN_SCALE: 0.45,
+  },
+};
+const TIER = PERF_TIERS[DEVICE.tier];
+
+/* ★ 運行時陰影開關：桌面開（華麗），手機關（shadowBlur 是手機殺手，每幀省很多）
+   注意：sprite「烘焙階段」的 shadowBlur 不受此影響，因為只執行一次。 */
+const USE_SHADOW = DEVICE.tier === "desktop";
+/* 便利函式：設定運行時 shadowBlur，手機自動略過 */
+function setShadow(color, blur) {
+  if (USE_SHADOW) { ctx.shadowColor = color; ctx.shadowBlur = blur; }
+}
+function clearShadow() { if (USE_SHADOW) ctx.shadowBlur = 0; }
+
 /* ---------------- 1. 全域設定 ---------------- */
 const CONFIG = {
   INVINCIBLE: true,
@@ -274,28 +450,33 @@ const CONFIG = {
   CRIT_MULT: 2.0,
   PLAYER_SPEED: 300,
   MAGNET_RANGE: 180,
-  MAX_PARTICLES: 1200,
-  MAX_ENEMIES: 1500,        // ★ 2.0 的 320 → 1500
-  MAX_DMG_TEXTS: 110,       // 傷害數字上限（超過時只保留暴擊/BOSS字）
-  MAX_COINS: 350,           // 金幣上限（滿了直接自動入帳）
+  /* ★ 以下改為依裝置分級 */
+  MAX_PARTICLES: TIER.MAX_PARTICLES,
+  MAX_ENEMIES: TIER.MAX_ENEMIES,
+  MAX_DMG_TEXTS: TIER.MAX_DMG_TEXTS,
+  MAX_COINS: TIER.MAX_COINS,
+  TRAIL_GHOSTS: TIER.TRAIL_GHOSTS,
+  STORM_COUNT: TIER.STORM_COUNT,
+  SPAWN_SCALE: TIER.SPAWN_SCALE,
+  DPR_CAP: TIER.DPR_CAP,
   ULT_KILLS_NEEDED: 45,
   EXP_BASE: 12,
-  TRAIL_GHOSTS: 3,
   GRID_CELL: 150,           // 空間網格 cell 尺寸
 };
 
 /* ---------------- 畫布初始化 ---------------- */
 const canvas = document.getElementById("gameCanvas");
-const ctx = canvas.getContext("2d");
-let W = 0, H = 0;
+const ctx = canvas.getContext("2d", { alpha: false });   // 不透明畫布，合成更快
+let W = 0, H = 0, DPR = 1;
 function resize() {
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  DPR = Math.min(window.devicePixelRatio || 1, CONFIG.DPR_CAP);   // ★ 手機降 DPR 省像素
   W = window.innerWidth; H = window.innerHeight;
-  canvas.width = W * dpr; canvas.height = H * dpr;
+  canvas.width = Math.round(W * DPR); canvas.height = Math.round(H * DPR);
   canvas.style.width = W + "px"; canvas.style.height = H + "px";
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
 }
 window.addEventListener("resize", resize);
+window.addEventListener("orientationchange", () => setTimeout(resize, 120));
 resize();
 
 /* ---------------- 2. 工具函式 ---------------- */
@@ -962,8 +1143,9 @@ function updateWave(dt) {
   wave.spawnTimer -= dt;
 
   if (wave.spawnTimer <= 0) {
-    wave.spawnTimer = Math.max(0.06, 0.4 - wave.index * 0.03);
-    const count = Math.min(14, 3 + wave.index);
+    // 手機拉長生成間隔（SPAWN_SCALE 越小間隔越長），降低同屏壓力
+    wave.spawnTimer = Math.max(0.06, 0.4 - wave.index * 0.03) / CONFIG.SPAWN_SCALE;
+    const count = Math.max(1, Math.round(Math.min(14, 3 + wave.index) * CONFIG.SPAWN_SCALE));
     for (let i = 0; i < count; i++) {
       const roll = Math.random();
       if (roll < 0.45) spawnEnemy("slime");
@@ -972,11 +1154,11 @@ function updateWave(dt) {
     }
   }
 
-  // ★ 怪物風暴：第 4 波起每波開場一次性湧入 60 隻，體驗千怪同屏
+  // ★ 怪物風暴：第 4 波起每波開場一次性湧入（數量依裝置分級）
   if (!wave.stormDone && wave.index >= 4 && wave.waveTimer > 2) {
     wave.stormDone = true;
     announceText("🌊 怪 物 風 暴 🌊", "#9b5cff");
-    for (let i = 0; i < 60; i++) spawnEnemy("slime");
+    for (let i = 0; i < CONFIG.STORM_COUNT; i++) spawnEnemy("slime");
   }
 
   if (!wave.ogreSpawned && wave.index >= 2 && wave.waveTimer > wave.waveDuration * 0.4) {
@@ -1303,9 +1485,25 @@ function setTarget(clientX, clientY) {
   player.targetX = clientX + camera.x;
   player.targetY = clientY + camera.y;
 }
+/* 桌面：滑鼠移動即持續朝游標（維持原手感） */
 canvas.addEventListener("mousemove", (e) => setTarget(e.clientX, e.clientY));
-canvas.addEventListener("touchstart", (e) => { const t = e.touches[0]; setTarget(t.clientX, t.clientY); }, { passive: true });
-canvas.addEventListener("touchmove",  (e) => { const t = e.touches[0]; setTarget(t.clientX, t.clientY); }, { passive: true });
+
+/* 手機：手指按住拖曳朝觸點移動，放開即停（角色不再亂飄）
+   用 preventDefault 攔截捲動/縮放手勢，避免與遊戲衝突 */
+canvas.addEventListener("touchstart", (e) => {
+  e.preventDefault();
+  const t = e.touches[0];
+  setTarget(t.clientX, t.clientY);
+}, { passive: false });
+canvas.addEventListener("touchmove", (e) => {
+  e.preventDefault();
+  const t = e.touches[0];
+  setTarget(t.clientX, t.clientY);
+}, { passive: false });
+canvas.addEventListener("touchend", (e) => {
+  if (e.touches.length === 0) player.targetX = null;   // 手指全放開 → 停止移動
+}, { passive: true });
+canvas.addEventListener("touchcancel", () => { player.targetX = null; }, { passive: true });
 
 /* ---------------- UI 快取 ---------------- */
 const ui = {
@@ -1324,7 +1522,18 @@ const ui = {
   bossWrap: document.getElementById("bossBarWrap"),
   bossBar: document.getElementById("bossBar"),
 };
-ui.ultBtn.addEventListener("click", castUltimate);
+/* 大招按鈕：桌面用 click，手機用 touchstart 即時觸發（消除 300ms 延遲）
+   用旗標避免觸控裝置上 touchstart + click 重複觸發 */
+let ultTouchHandled = false;
+ui.ultBtn.addEventListener("touchstart", (e) => {
+  e.preventDefault();
+  ultTouchHandled = true;
+  castUltimate();
+}, { passive: false });
+ui.ultBtn.addEventListener("click", () => {
+  if (ultTouchHandled) { ultTouchHandled = false; return; }
+  castUltimate();
+});
 
 /* ================================================================
    更新邏輯
@@ -1709,12 +1918,12 @@ function drawBossEnemy(e) {
     ctx.quadraticCurveTo(-r * 0.55, r * 0.85, -r * 0.9, -r * 0.3);
     ctx.closePath(); ctx.fill();
     ctx.strokeStyle = flash ? "#fff" : "#ffb02d";
-    ctx.shadowColor = "#ff9a2d"; ctx.shadowBlur = e.phase === 3 ? 22 : 12;
+    setShadow("#ff9a2d", e.phase === 3 ? 22 : 12);
     ctx.lineWidth = e.phase === 3 ? 5 : 3;
     ctx.beginPath();
     ctx.moveTo(0, -r * 0.3); ctx.lineTo(-r * 0.15, 0); ctx.lineTo(r * 0.1, r * 0.2); ctx.lineTo(-r * 0.05, r * 0.5);
     ctx.stroke();
-    ctx.shadowBlur = 0;
+    clearShadow();
     ctx.fillStyle = skin;
     ctx.beginPath(); ctx.arc(0, -r * 0.72, r * 0.4, 0, TAU); ctx.fill();
     ctx.fillStyle = flash ? "#fff" : "#3b2a2a";
@@ -1730,10 +1939,10 @@ function drawBossEnemy(e) {
     ctx.closePath(); ctx.fill();
     const eyeR = e.phase === 3 ? r * 0.11 : r * 0.08;   // 最終形態眼睛更大
     ctx.fillStyle = flash ? "#fff" : "#ffdd33";
-    ctx.shadowColor = "#ffdd33"; ctx.shadowBlur = 16;
+    setShadow("#ffdd33", 16);
     ctx.beginPath(); ctx.arc(-r * 0.15, -r * 0.75, eyeR, 0, TAU); ctx.fill();
     ctx.beginPath(); ctx.arc( r * 0.15, -r * 0.75, eyeR, 0, TAU); ctx.fill();
-    ctx.shadowBlur = 0;
+    clearShadow();
   }
 
   if (e.hp < e.maxHp && e.hp > 0) {
@@ -1813,7 +2022,7 @@ function drawObstacle(o) {
       ctx.fillStyle = "rgba(0,0,0,0.3)";
       ctx.beginPath(); ctx.ellipse(0, o.r * 0.55, o.r, o.r * 0.32, 0, 0, TAU); ctx.fill();
       const pulse = 0.7 + Math.sin(state.time * 2 + o.seed) * 0.3;
-      ctx.shadowColor = "#5cc8ff"; ctx.shadowBlur = 22 * pulse;
+      setShadow("#5cc8ff", 22 * pulse);
       const crystals = [
         { dx: 0,           dy: 0,          h: 1.6,  w: 0.42 },
         { dx: -o.r * 0.45, dy: o.r * 0.15, h: 1.0,  w: 0.3  },
@@ -1830,7 +2039,7 @@ function drawObstacle(o) {
         ctx.lineTo(c.dx + o.r * c.w, c.dy + o.r * 0.3);
         ctx.closePath(); ctx.fill();
       }
-      ctx.shadowBlur = 0;
+      clearShadow();
       break;
     }
   }
@@ -1921,7 +2130,7 @@ function drawBlackhole(bh) {
   // 旋臂（兩條螺旋弧）
   ctx.rotate(bh.angle);
   ctx.strokeStyle = vortex ? "#ff9a2d" : "#9b5cff";
-  ctx.shadowColor = ctx.strokeStyle; ctx.shadowBlur = 18;
+  setShadow(ctx.strokeStyle, 18);
   ctx.lineWidth = 7;
   for (let arm = 0; arm < 2; arm++) {
     ctx.beginPath();
@@ -1933,7 +2142,7 @@ function drawBlackhole(bh) {
     }
     ctx.stroke();
   }
-  ctx.shadowBlur = 0;
+  clearShadow();
   // 深邃核心
   const core = ctx.createRadialGradient(0, 0, 2, 0, 0, 30);
   core.addColorStop(0, "#000");
@@ -1990,12 +2199,22 @@ function inView(x, y, margin) {
 }
 
 let renderDt = 0.016;   // render 需要 dt（小地圖節流用）
+
+/* ★ 背景漸層快取：只在畫面尺寸變動時重建，避免每幀建立漸層物件 */
+let bgGradient = null, bgGradW = 0, bgGradH = 0;
+function getBgGradient() {
+  if (!bgGradient || bgGradW !== W || bgGradH !== H) {
+    bgGradient = ctx.createRadialGradient(W / 2, H / 2, 80, W / 2, H / 2, Math.max(W, H) * 0.75);
+    bgGradient.addColorStop(0, "#1f3324");
+    bgGradient.addColorStop(1, "#0c1620");
+    bgGradW = W; bgGradH = H;
+  }
+  return bgGradient;
+}
+
 function render() {
   ctx.clearRect(0, 0, W, H);
-  const bg = ctx.createRadialGradient(W / 2, H / 2, 80, W / 2, H / 2, Math.max(W, H) * 0.75);
-  bg.addColorStop(0, "#1f3324");
-  bg.addColorStop(1, "#0c1620");
-  ctx.fillStyle = bg;
+  ctx.fillStyle = getBgGradient();
   ctx.fillRect(0, 0, W, H);
 
   ctx.save();
@@ -2113,14 +2332,14 @@ function render() {
       ctx.globalAlpha = t;
       ctx.strokeStyle = "#bfe6ff";
       ctx.lineWidth = 6;
-      ctx.shadowColor = "#5cc8ff"; ctx.shadowBlur = 16;
+      setShadow("#5cc8ff", 16);
       ctx.beginPath();
       lt.pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
       ctx.stroke();
       ctx.lineWidth = 2;
       ctx.strokeStyle = "#ffffff";
       ctx.stroke();
-      ctx.shadowBlur = 0;
+      clearShadow();
     }
     ctx.restore();
     ctx.globalAlpha = 1;
@@ -2153,9 +2372,9 @@ function render() {
     ctx.strokeStyle = sw.color;
     ctx.globalAlpha = t * 0.9;
     ctx.lineWidth = 16 * t + 3;
-    ctx.shadowColor = sw.color; ctx.shadowBlur = 26;
+    setShadow(sw.color, 26);
     ctx.beginPath(); ctx.arc(sw.x, sw.y, sw.r, 0, TAU); ctx.stroke();
-    ctx.shadowBlur = 0;
+    clearShadow();
   }
   ctx.globalAlpha = 1;
 
@@ -2213,9 +2432,9 @@ function render() {
     const gl = Math.min(1, state.borderGlow) * (0.6 + Math.sin(state.time * 8) * 0.4);
     ctx.strokeStyle = `rgba(255, 215, 60, ${gl})`;
     ctx.lineWidth = 14;
-    ctx.shadowColor = "#ffd23f"; ctx.shadowBlur = 30;
+    setShadow("#ffd23f", 30);
     ctx.strokeRect(7, 7, W - 14, H - 14);
-    ctx.shadowBlur = 0;
+    clearShadow();
   }
 
   /* 公告 */
@@ -2231,7 +2450,7 @@ function render() {
     ctx.lineWidth = 7; ctx.strokeStyle = "rgba(0,0,0,0.7)";
     ctx.strokeText(an.text, 0, 0);
     ctx.fillStyle = an.color;
-    ctx.shadowColor = an.color; ctx.shadowBlur = 22;
+    setShadow(an.color, 22);
     ctx.fillText(an.text, 0, 0);
     ctx.restore();
   }
@@ -2248,7 +2467,7 @@ function render() {
     ctx.strokeText(`${state.combo} COMBO!`, 0, 0);
     const hue = (state.hueShift * 2) % 360;
     ctx.fillStyle = `hsl(${hue}, 100%, 62%)`;
-    ctx.shadowColor = ctx.fillStyle; ctx.shadowBlur = 16;
+    setShadow(ctx.fillStyle, 16);
     ctx.fillText(`${state.combo} COMBO!`, 0, 0);
     ctx.restore();
   }
@@ -2266,6 +2485,46 @@ function render() {
    ================================================================ */
 let lastTime = 0;
 let fpsAcc = 0, fpsFrames = 0, fpsTimer = 0;
+let curFps = 60;
+
+/* ★ 自適應效能降級：若 FPS 持續偏低，動態壓低怪物上限（只降不升太快，避免抖動）
+   桌面不啟用（本來就跑得動），只在手機介入。 */
+let adaptTimer = 0;
+const ENEMY_FLOOR = Math.round(CONFIG.MAX_ENEMIES * 0.35);   // 最低不低於初始的 35%
+function adaptPerformance(dt) {
+  if (DEVICE.tier === "desktop") return;
+  adaptTimer += dt;
+  if (adaptTimer < 1.5) return;   // 每 1.5 秒評估一次
+  adaptTimer = 0;
+  if (curFps < 40 && CONFIG.MAX_ENEMIES > ENEMY_FLOOR) {
+    // 掉幀：砍 15% 怪物上限，並清掉離玩家最遠的怪
+    CONFIG.MAX_ENEMIES = Math.max(ENEMY_FLOOR, Math.round(CONFIG.MAX_ENEMIES * 0.85));
+    CONFIG.MAX_PARTICLES = Math.max(120, Math.round(CONFIG.MAX_PARTICLES * 0.85));
+    trimFarEnemies();
+  } else if (curFps > 55 && CONFIG.MAX_ENEMIES < TIER.MAX_ENEMIES) {
+    // 幀數回穩：緩慢放寬（每次 +8%）
+    CONFIG.MAX_ENEMIES = Math.min(TIER.MAX_ENEMIES, Math.round(CONFIG.MAX_ENEMIES * 1.08) + 4);
+  }
+}
+/* 超過上限時，移除離玩家最遠的普通怪（保留 BOSS） */
+function trimFarEnemies() {
+  const over = enemies.length - CONFIG.MAX_ENEMIES;
+  if (over <= 0) return;
+  const normals = [];
+  for (let i = 0; i < enemies.length; i++) {
+    const e = enemies[i];
+    if (e.type !== "demonLord" && e.type !== "ogre") {
+      normals.push([dist2(e.x, e.y, player.x, player.y), e]);
+    }
+  }
+  normals.sort((a, b) => b[0] - a[0]);   // 距離大的排前面
+  const remove = new Set();
+  for (let i = 0; i < over && i < normals.length; i++) remove.add(normals[i][1]);
+  for (let i = enemies.length - 1; i >= 0; i--) {
+    if (remove.has(enemies[i])) enemies.splice(i, 1);
+  }
+}
+
 function loop(ts) {
   if (!state.running) return;
   const dt = Math.min((ts - lastTime) / 1000, 0.05);
@@ -2275,15 +2534,41 @@ function loop(ts) {
   // FPS 統計（每 0.5 秒更新 HUD）
   fpsAcc += dt; fpsFrames++; fpsTimer += dt;
   if (fpsTimer >= 0.5) {
-    ui.fps.textContent = Math.round(fpsFrames / fpsAcc);
+    curFps = Math.round(fpsFrames / fpsAcc);
+    ui.fps.textContent = curFps;
     ui.count.textContent = enemies.length;
     fpsAcc = 0; fpsFrames = 0; fpsTimer = 0;
   }
 
-  if (!state.paused) update(dt);   // ★ 選卡中暫停邏輯，但持續渲染
+  if (!state.paused) {
+    update(dt);                 // ★ 選卡中暫停邏輯，但持續渲染
+    adaptPerformance(dt);       // ★ 自適應降級（手機才作用）
+  }
   render();
   requestAnimationFrame(loop);
 }
+
+/* ---------------- 顯示裝置偵測結果 ---------------- */
+(function showDeviceInfo() {
+  const tierName = { desktop: "🖥️ 桌面（全效能）", mobile: "📱 手機（優化）", lowEnd: "📱 低階手機（省電）" }[DEVICE.tier];
+  const info = document.getElementById("deviceInfo");
+  if (info) {
+    info.textContent = `偵測裝置：${tierName}｜怪物上限 ${CONFIG.MAX_ENEMIES}｜粒子 ${CONFIG.MAX_PARTICLES}`;
+  }
+  // 依裝置等級調整操作提示
+  const hint = document.getElementById("hint");
+  if (hint) {
+    if (DEVICE.tier === "desktop") {
+      // 桌面（含觸控筆電）：滑鼠/鍵盤為主，若有觸控也能用
+      hint.textContent = DEVICE.isTouch
+        ? "滑鼠或手指移動｜空白鍵 / 右下按鈕放大招｜升級點卡片或按 1/2/3"
+        : "滑鼠 / WASD 移動｜空白鍵放大招｜升級選卡可按 1 / 2 / 3";
+    } else {
+      // 純手機：觸控操作
+      hint.textContent = "手指拖曳移動｜右下按鈕放大招｜升級點卡片即可";
+    }
+  }
+})();
 
 /* ---------------- 開始遊戲 ---------------- */
 document.getElementById("startBtn").addEventListener("click", () => {
